@@ -1,0 +1,73 @@
+#include <stdio.h>
+
+int main() {
+    int n, i, j;
+    int p[20], at[20], bt[20], ct[20], tat[20], wt[20];
+    int time = 0;
+
+    printf("Enter number of processes: ");
+    scanf("%d", &n);
+
+    for (i = 0; i < n; i++) {
+        p[i] = i + 1;
+        printf("Arrival Time of P%d: ", p[i]);
+        scanf("%d", &at[i]);
+        printf("Burst Time of P%d: ", p[i]);
+        scanf("%d", &bt[i]);
+    }
+
+    /* 🔹 Sort processes by Arrival Time (FCFS Rule) */
+    for (i = 0; i < n - 1; i++) {
+        for (j = i + 1; j < n; j++) {
+            if (at[i] > at[j]) {
+                // swap arrival time
+                int temp = at[i];
+                at[i] = at[j];
+                at[j] = temp;
+
+                // swap burst time
+                temp = bt[i];
+                bt[i] = bt[j];
+                bt[j] = temp;
+
+                // swap process id
+                temp = p[i];
+                p[i] = p[j];
+                p[j] = temp;
+            }
+        }
+    }
+
+    printf("\n--- FCFS Scheduling ---\n");
+
+    /* 🔹 FCFS Scheduling */
+    for (i = 0; i < n; i++) {
+
+        if (time < at[i]) {
+            time = at[i];   // CPU idle case
+        }
+
+        time += bt[i];
+        ct[i] = time;
+        tat[i] = ct[i] - at[i];
+        wt[i] = tat[i] - bt[i];
+    }
+
+    int totalTAT = 0, totalWT = 0;
+
+    printf("P\tAT\tBT\tCT\tTAT\tWT\n");
+
+    for (i = 0; i < n; i++) {
+        totalTAT += tat[i];
+        totalWT += wt[i];
+        printf("P%d\t%d\t%d\t%d\t%d\t%d\n",
+               p[i], at[i], bt[i], ct[i], tat[i], wt[i]);
+    }
+
+    printf("\nTotal Turnaround Time = %d", totalTAT);
+    printf("\nAverage Turnaround Time = %.2f", (float)totalTAT / n);
+    printf("\nTotal Waiting Time = %d", totalWT);
+    printf("\nAverage Waiting Time = %.2f\n", (float)totalWT / n);
+
+    return 0;
+}
