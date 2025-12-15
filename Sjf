@@ -1,0 +1,64 @@
+#include <stdio.h>
+
+int main() {
+    int n, i;
+    int p[20], at[20], bt[20], ct[20], tat[20], wt[20];
+    int completed[20] = {0};
+    int time = 0, done = 0;
+
+    printf("Enter number of processes: ");
+    scanf("%d", &n);
+
+    for (i = 0; i < n; i++) {
+        p[i] = i + 1;
+        printf("Arrival Time of P%d: ", p[i]);
+        scanf("%d", &at[i]);
+        printf("Burst Time of P%d: ", p[i]);
+        scanf("%d", &bt[i]);
+    }
+
+    printf("\n--- SJF (Non-Preemptive) Scheduling ---\n");
+
+    while (done < n) {
+        int idx = -1;
+        int minBT = 9999;
+
+        for (i = 0; i < n; i++) {
+            if (at[i] <= time && completed[i] == 0) {
+                if (bt[i] < minBT) {
+                    minBT = bt[i];
+                    idx = i;
+                }
+            }
+        }
+
+        if (idx == -1) {
+            time++;
+            continue;
+        }
+
+        time += bt[idx];
+        ct[idx] = time;
+        tat[idx] = ct[idx] - at[idx];
+        wt[idx] = tat[idx] - bt[idx];
+        completed[idx] = 1;
+        done++;
+    }
+
+    int totalTAT = 0, totalWT = 0;
+
+    printf("P\tAT\tBT\tCT\tTAT\tWT\n");
+
+    for (i = 0; i < n; i++) {
+        totalTAT += tat[i];
+        totalWT += wt[i];
+        printf("P%d\t%d\t%d\t%d\t%d\t%d\n", p[i], at[i], bt[i], ct[i], tat[i], wt[i]);
+    }
+
+    printf("\nTotal Turnaround Time = %d", totalTAT);
+    printf("\nAverage Turnaround Time = %.2f", (float)totalTAT / n);
+    printf("\nTotal Waiting Time = %d", totalWT);
+    printf("\nAverage Waiting Time = %.2f\n", (float)totalWT / n);
+
+    return 0;
+}
