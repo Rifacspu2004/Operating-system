@@ -1,0 +1,66 @@
+#include <stdio.h>
+
+int main() {
+    int n;
+    int arrivalTime[20], burstTime[20], priority[20];
+    int waitingTime[20], turnaroundTime[20], completed[20];
+    int currentTime = 0, done = 0;
+
+    float totalWaitingTime = 0, totalTurnaroundTime = 0;
+
+    printf("Enter number of processes: ");
+    scanf("%d", &n);
+
+    for (int i = 0; i < n; i++) {
+        printf("Enter arrival time, burst time and priority for P%d: ", i + 1);
+        scanf("%d %d %d", &arrivalTime[i], &burstTime[i], &priority[i]);
+        completed[i] = 0;
+    }
+
+    while (done < n) {
+        int idx = -1;
+        int highestPriority = 9999;
+
+        // Select process with highest priority (lowest number)
+        for (int i = 0; i < n; i++) {
+            if (arrivalTime[i] <= currentTime && !completed[i]) {
+                if (priority[i] < highestPriority) {
+                    highestPriority = priority[i];
+                    idx = i;
+                }
+            }
+        }
+
+        if (idx != -1) {
+            waitingTime[idx] = currentTime - arrivalTime[idx];
+            currentTime += burstTime[idx];
+            turnaroundTime[idx] = burstTime[idx] + waitingTime[idx];
+
+            totalWaitingTime += waitingTime[idx];
+            totalTurnaroundTime += turnaroundTime[idx];
+
+            completed[idx] = 1;
+            done++;
+        } else {
+            currentTime++;  // CPU idle
+        }
+    }
+
+    printf("\nProcess\tArrival\tBurst\tPriority\tWaiting\tTurnaround\n");
+    for (int i = 0; i < n; i++) {
+        printf("P%d\t%d\t%d\t%d\t\t%d\t%d\n",
+               i + 1,
+               arrivalTime[i],
+               burstTime[i],
+               priority[i],
+               waitingTime[i],
+               turnaroundTime[i]);
+    }
+
+    printf("\nTotal Waiting Time: %.2f", totalWaitingTime);
+    printf("\nTotal Turnaround Time: %.2f", totalTurnaroundTime);
+    printf("\nAverage Waiting Time: %.2f", totalWaitingTime / n);
+    printf("\nAverage Turnaround Time: %.2f\n", totalTurnaroundTime / n);
+
+    return 0;
+}
