@@ -1,0 +1,68 @@
+#include <stdio.h>
+
+int main() {
+    int n, time = 0, completed = 0, i, min;
+
+    printf("Enter number of processes: ");
+    scanf("%d", &n);
+
+    int at[n], bt[n], rt[n], wt[n], tat[n], ct[n], done[n];
+
+    int totalWT = 0;
+    int totalTAT = 0;
+
+    for (i = 0; i < n; i++) {
+        printf("Enter Arrival Time and Burst Time for P%d: ", i + 1);
+        scanf("%d %d", &at[i], &bt[i]);
+        rt[i] = bt[i];
+        done[i] = 0;
+    }
+
+    while (completed < n) {
+        min = -1;
+
+        for (i = 0; i < n; i++) {
+            if (at[i] <= time && !done[i]) {
+                if (min == -1 || rt[i] < rt[min]) {
+                    min = i;
+                }
+            }
+        }
+
+        if (min == -1) {
+            time++;
+        } else {
+            rt[min]--;
+            time++;
+
+            if (rt[min] == 0) {
+                ct[min] = time;
+                tat[min] = ct[min] - at[min];
+                wt[min] = tat[min] - bt[min];
+
+                totalWT += wt[min];      
+                totalTAT += tat[min];    
+
+                done[min] = 1;
+                completed++;
+            }
+        }
+    }
+
+    printf("\nProcess\tAT\tBT\tWT\tTAT\n");
+    for (i = 0; i < n; i++) {
+        printf("P%d\t%d\t%d\t%d\t%d\n",
+               i + 1, at[i], bt[i], wt[i], tat[i]);
+    }
+
+    printf("\nTotal Waiting Time = %d", totalWT);
+    printf("\nTotal Turnaround Time = %d", totalTAT);
+
+    printf("\nAverage Waiting Time = %.2f",
+           (float)totalWT / n);
+    printf("\nAverage Turnaround Time = %.2f\n",
+           (float)totalTAT / n);
+
+    return 0;
+}
+SRTF
