@@ -1,0 +1,79 @@
+
+#include <stdio.h>
+#include <stdlib.h>
+
+void sort(int arr[], int n) {
+    int i, j, temp;
+    for(i = 0; i < n - 1; i++) {
+        for(j = 0; j < n - i - 1; j++) {
+            if(arr[j] > arr[j + 1]) {
+                temp = arr[j];
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
+            }
+        }
+    }
+}
+
+int main() {
+    int request[100], n, head;
+    int i, totalSeekTime = 0;
+    int direction;
+
+    printf("Enter number of requests: ");
+    scanf("%d", &n);
+
+    printf("Enter request sequence:\n");
+    for(i = 0; i < n; i++) {
+        scanf("%d", &request[i]);
+    }
+
+    printf("Enter initial head position: ");
+    scanf("%d", &head);
+
+    printf("Enter direction (0 for left, 1 for right): ");
+    scanf("%d", &direction);
+
+    sort(request, n);
+
+    printf("\nSeek Sequence: ");
+
+    if(direction == 1) {   // Moving right
+        for(i = 0; i < n; i++) {
+            if(request[i] >= head) {
+                totalSeekTime += abs(request[i] - head);
+                head = request[i];
+                printf("%d ", head);
+            }
+        }
+
+        for(i = n - 1; i >= 0; i--) {
+            if(request[i] < head) {
+                totalSeekTime += abs(request[i] - head);
+                head = request[i];
+                printf("%d ", head);
+            }
+        }
+    }
+    else {   // Moving left
+        for(i = n - 1; i >= 0; i--) {
+            if(request[i] <= head) {
+                totalSeekTime += abs(request[i] - head);
+                head = request[i];
+                printf("%d ", head);
+            }
+        }
+
+        for(i = 0; i < n; i++) {
+            if(request[i] > head) {
+                totalSeekTime += abs(request[i] - head);
+                head = request[i];
+                printf("%d ", head);
+            }
+        }
+    }
+
+    printf("\nTotal Seek Time: %d\n", totalSeekTime);
+
+    return 0;
+}
