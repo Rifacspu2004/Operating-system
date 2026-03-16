@@ -1,0 +1,307 @@
+/*
+ * ============================================================
+ *   UNIFIED CPU SCHEDULING SIMULATOR
+ *   Algorithms: FCFS | SJF | SRTF | Priority-NP | Priority-P | Round Robin
+ * ============================================================
+ *
+ *  WHAT CHANGES PER ALGORITHM
+ *  ---------------------------
+ *  1. Menu choice  → selects the algorithm
+ *  2. Input block  → Priority needs pr[], Round Robin needs tq
+ *  3. Schedule()   → one function per algorithm (clearly separated)
+ *  4. Output block → Priority prints pr column; rest are identical
+ *
+ *  EVERYTHING ELSE IS SHARED:
+ *    - Process struct, input routine, stats calculation, display
+ */
+
+#include <stdio.h>
+#include <limits.h>
+#include <string.h>
+
+#define MAX 20
+
+/* ── Shared process structure ─────────────────────────────── */
+typedef struct {
+    int pid;
+    int at;          // Arrival Time
+    int bt;          // Burst Time
+    int pr;          // Priority  (used only by Priority algorithms)
+    int rt;          // Remaining Time (used by SRTF, Priority-P, RR)
+    int ct;          // Completion Time
+    int tat;         // Turnaround Time
+    int wt;          // Waiting Time
+    int done;        // finished flag
+} Process;
+
+/* ── Shared input ─────────────────────────────────────────── */
+void inputProcesses(Process p[], int n, int needPriority) {
+    for (int i = 0; i < n; i++) {
+        p[i].pid  = i + 1;
+        p[i].done = 0;
+        printf("P%d -> Arrival Time: ", p[i].pid);
+        scanf("%d", &p[i].at);
+        printf("P%d -> Burst Time  : ", p[i].pid);
+        scanf("%d", &p[i].bt);
+        if (needPriority) {
+            printf("P%d -> Priority    : ", p[i].pid);
+            scanf("%d", &p[i].pr);
+        }
+        p[i].rt = p[i].bt;   // initialise remaining time
+    }
+}
+
+/* ── Shared stats + display ───────────────────────────────── */
+void printResults(Process p[], int n, int showPriority) {
+    int totalTAT = 0, totalWT = 0;
+
+    if (showPriority)
+        printf("\nP\tAT\tBT\tPR\tCT\tTAT\tWT\n");
+    else
+        printf("\nP\tAT\tBT\tCT\tTAT\tWT\n");
+
+    for (int i = 0; i < n; i++) {
+        p[i].tat   = p[i].ct - p[i].at;
+        p[i].wt    = p[i].tat - p[i].bt;
+        totalTAT  += p[i].tat;
+        totalWT   += p[i].wt;
+
+        if (showPriority)
+            printf("P%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
+                   p[i].pid, p[i].at, p[i].bt, p[i].pr,
+                   p[i].ct, p[i].tat, p[i].wt);
+        else
+            printf("P%d\t%d\t%d\t%d\t%d\t%d\n",
+                   p[i].pid, p[i].at, p[i].bt,
+                   p[i].ct, p[i].tat, p[i].wt);
+    }
+
+    printf("\nTotal Turnaround Time  = %d", totalTAT);
+    printf("\nAverage Turnaround Time= %.2f", (float)totalTAT / n);
+    printf("\nTotal Waiting Time     = %d", totalWT);
+    printf("\nAverage Waiting Time   = %.2f\n", (float)totalWT / n);
+}
+
+/* ============================================================
+ *  ALGORITHM 1 : FCFS  (sort by AT, run in order)
+ * ============================================================ */
+void scheduleFCFS(Process p[], int n) {
+    /* Sort by Arrival Time */
+    for (int i = 0; i < n - 1; i++)
+        for (int j = i + 1; j < n; j++)
+            if (p[i].at > p[j].at) {
+                Process tmp = p[i]; p[i] = p[j]; p[j] = tmp;
+            }
+
+    int time = 0;
+    for (int i = 0; i < n; i++) {
+        if (time < p[i].at) time = p[i].at;   // idle gap
+        time    += p[i].bt;
+        p[i].ct  = time;
+    }
+}
+
+/* ============================================================
+ *  ALGORITHM 2 : SJF – Non-Preemptive
+ *  (pick shortest burst among arrived, run to completion)
+ * ============================================================ */
+void scheduleSJF(Process p[], int n) {
+    int time = 0, completed = 0;
+    while (completed < n) {
+        int idx = -1, minBT = INT_MAX;
+        for (int i = 0; i < n; i++)
+            if (p[i].at <= time && !p[i].done && p[i].bt < minBT) {
+                minBT = p[i].bt; idx = i;
+            }
+        if (idx == -1) { time++; continue; }
+        time       += p[idx].bt;
+        p[idx].ct   = time;
+        p[idx].done = 1;
+        completed++;
+    }
+}
+
+/* ============================================================
+ *  ALGORITHM 3 : SRTF – Preemptive SJF
+ *  (every tick, pick process with shortest REMAINING time)
+ * ============================================================ */
+void scheduleSRTF(Process p[], int n) {
+    int time = 0, completed = 0;
+    while (completed < n) {
+        int idx = -1, minRT = INT_MAX;
+        for (int i = 0; i < n; i++)
+            if (p[i].at <= time && !p[i].done && p[i].rt < minRT) {
+                minRT = p[i].rt; idx = i;
+            }
+        if (idx == -1) { time++; continue; }
+        p[idx].rt--;
+        time++;
+        if (p[idx].rt == 0) {
+            p[idx].ct   = time;
+            p[idx].done = 1;
+            completed++;
+        }
+    }
+}
+
+/* ============================================================
+ *  ALGORITHM 4 : Priority – Non-Preemptive
+ *  (pick lowest priority number among arrived, run to completion)
+ *  ── CHANGE vs SJF: compare pr[] instead of bt[] ──
+ * ============================================================ */
+void schedulePriorityNP(Process p[], int n) {
+    int time = 0, completed = 0;
+    while (completed < n) {
+        int idx = -1, highestPR = INT_MAX;
+        for (int i = 0; i < n; i++)
+            if (p[i].at <= time && !p[i].done && p[i].pr < highestPR) {
+                highestPR = p[i].pr; idx = i;
+            }
+        if (idx == -1) { time++; continue; }
+        time       += p[idx].bt;
+        p[idx].ct   = time;
+        p[idx].done = 1;
+        completed++;
+    }
+}
+
+/* ============================================================
+ *  ALGORITHM 5 : Priority – Preemptive
+ *  (every tick, pick arrived process with lowest priority number)
+ *  ── CHANGE vs SRTF: compare pr[] instead of rt[] ──
+ * ============================================================ */
+void schedulePriorityP(Process p[], int n) {
+    int time = 0, completed = 0;
+    while (completed < n) {
+        int idx = -1, highestPR = INT_MAX;
+        for (int i = 0; i < n; i++)
+            if (p[i].at <= time && !p[i].done && p[i].pr < highestPR) {
+                highestPR = p[i].pr; idx = i;
+            }
+        if (idx == -1) { time++; continue; }
+        p[idx].rt--;
+        time++;
+        if (p[idx].rt == 0) {
+            p[idx].ct   = time;
+            p[idx].done = 1;
+            completed++;
+        }
+    }
+}
+
+/* ============================================================
+ *  ALGORITHM 6 : Round Robin
+ *  (circular queue, each process gets tq time slices)
+ * ============================================================ */
+void scheduleRR(Process p[], int n, int tq) {
+    int queue[MAX * 100], front = 0, rear = 0;
+    int visited[MAX] = {0};
+    int time = 0, completed = 0;
+
+    /* Enqueue processes that arrive at time 0 */
+    for (int i = 0; i < n; i++)
+        if (p[i].at == 0) { queue[rear++] = i; visited[i] = 1; }
+
+    while (completed < n) {
+        if (front == rear) {                     /* queue empty → idle */
+            time++;
+            for (int i = 0; i < n; i++)
+                if (p[i].at <= time && !visited[i]) {
+                    queue[rear++] = i; visited[i] = 1;
+                }
+            continue;
+        }
+
+        int idx = queue[front++];
+
+        if (p[idx].rt > tq) {
+            time       += tq;
+            p[idx].rt  -= tq;
+        } else {
+            time       += p[idx].rt;
+            p[idx].rt   = 0;
+            p[idx].ct   = time;
+            completed++;
+        }
+
+        /* Enqueue newly arrived processes */
+        for (int i = 0; i < n; i++)
+            if (p[i].at <= time && !visited[i]) {
+                queue[rear++] = i; visited[i] = 1;
+            }
+
+        if (p[idx].rt > 0)                       /* re-enqueue if unfinished */
+            queue[rear++] = idx;
+    }
+}
+
+/* ============================================================
+ *  MAIN – menu + dispatch
+ * ============================================================ */
+int main() {
+    Process p[MAX];
+    int n, choice, tq;
+
+    printf("========================================\n");
+    printf("     CPU SCHEDULING SIMULATOR\n");
+    printf("========================================\n");
+    printf(" 1. FCFS\n");
+    printf(" 2. SJF (Non-Preemptive)\n");
+    printf(" 3. SRTF (Preemptive SJF)\n");
+    printf(" 4. Priority (Non-Preemptive)\n");
+    printf(" 5. Priority (Preemptive)\n");
+    printf(" 6. Round Robin\n");
+    printf("========================================\n");
+    printf("Enter your choice: ");
+    scanf("%d", &choice);
+
+    printf("Enter number of processes: ");
+    scanf("%d", &n);
+
+    /* ── Input: only Priority algorithms need pr[] ── */
+    int needPriority = (choice == 4 || choice == 5);
+    inputProcesses(p, n, needPriority);
+
+    if (choice == 6) {
+        printf("Enter Time Quantum: ");
+        scanf("%d", &tq);
+    }
+
+    /* ── Dispatch ── */
+    switch (choice) {
+        case 1:
+            printf("\n--- FCFS Scheduling ---\n");
+            scheduleFCFS(p, n);
+            printResults(p, n, 0);
+            break;
+        case 2:
+            printf("\n--- SJF (Non-Preemptive) Scheduling ---\n");
+            scheduleSJF(p, n);
+            printResults(p, n, 0);
+            break;
+        case 3:
+            printf("\n--- SRTF (Preemptive SJF) Scheduling ---\n");
+            scheduleSRTF(p, n);
+            printResults(p, n, 0);
+            break;
+        case 4:
+            printf("\n--- Priority (Non-Preemptive) Scheduling ---\n");
+            schedulePriorityNP(p, n);
+            printResults(p, n, 1);
+            break;
+        case 5:
+            printf("\n--- Priority (Preemptive) Scheduling ---\n");
+            schedulePriorityP(p, n);
+            printResults(p, n, 1);
+            break;
+        case 6:
+            printf("\n--- Round Robin Scheduling (TQ = %d) ---\n", tq);
+            scheduleRR(p, n, tq);
+            printResults(p, n, 0);
+            break;
+        default:
+            printf("Invalid choice!\n");
+    }
+
+    return 0;
+}
