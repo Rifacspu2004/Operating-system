@@ -1,0 +1,110 @@
+#include <iostream>
+#include <thread>
+#include <mutex>
+#include <vector>
+#include <chrono>
+#include <condition_variable>
+
+using namespace std;
+
+const int N = 5;
+
+// Forks (mutex)
+mutex forks[N];
+
+// Semaphore simulation
+int count_allowed = N - 1;
+mutex mtx;
+condition_variable cv;
+
+// For clean output
+mutex print_mutex;
+
+void take_permission() {
+    unique_lock<mutex> lock(mtx);
+    while (count_allowed == 0)
+        cv.wait(lock);
+    count_allowed--;
+}
+
+void release_permission() {
+    unique_lock<mutex> lock(mtx);
+    count_allowed++;
+    cv.notify_one();
+}
+
+void philosopher(int id) {
+    int left = id;
+    int right = (id + 1) % N;
+
+    for (int i = 0; i < 2; i++) {  // limited loops for clean output
+
+        // Thinking
+        {
+            lock_guard<mutex> lock(print_mutex);
+            cout << "Philosopher " << id << " is thinking\n";
+        }
+        this_thread::sleep_for(chrono::milliseconds(500));
+
+        // Hungry
+        {
+            lock_guard<mutex> lock(print_mutex);
+            cout << "Philosopher " << id << " is hungry\n";
+        }
+
+        // Semaphore entry (N-1 rule)
+        take_permission();
+
+        // Pick forks
+        forks[left].lock();
+        {
+            lock_guard<mutex> lock(print_mutex);
+            cout << "Philosopher " << id << " picked LEFT fork\n";
+        }
+
+        this_thread::sleep_for(chrono::milliseconds(200));
+
+        forks[right].lock();
+        {
+            lock_guard<mutex> lock(print_mutex);
+            cout << "Philosopher " << id << " picked RIGHT fork\n";
+        }
+
+        // Eating
+        {
+            lock_guard<mutex> lock(print_mutex);
+            cout << "Philosopher " << id << " is eating\n";
+        }
+        this_thread::sleep_for(chrono::milliseconds(500));
+
+        // Release forks
+        forks[left].unlock();
+        forks[right].unlock();
+
+        // Leave semaphore
+        release_permission();
+
+        {
+            lock_guard<mutex> lock(print_mutex);
+            cout << "Philosopher " << id << " finished eating\n\n";
+        }
+
+        this_thread::sleep_for(chrono::milliseconds(300));
+    }
+}
+
+int main() {
+    vector<thread> philosophers;
+
+    for (int i = 0; i < N; i++) {
+        philosophers.push_back(thread(philosopher, i));
+        this_thread::sleep_for(chrono::milliseconds(100)); // stagger start
+    }
+
+    for (auto &t : philosophers) {
+        t.join();
+    }
+
+    cout << "\nSimulation finished.\n";
+    return 0;
+}
