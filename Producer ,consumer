@@ -1,0 +1,117 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+#include <semaphore.h>
+#include <unistd.h>
+
+// ── Shared Buffer (dynamic) ───────────────────────────────────
+int *buffer;
+int buffer_size;
+int num_items;
+int in  = 0;
+int out = 0;
+
+// ── Synchronization Tools ─────────────────────────────────────
+sem_t empty;
+sem_t full;
+pthread_mutex_t mutex;
+
+// ─────────────────────────────────────────────────────────────
+//  PRODUCER THREAD
+// ─────────────────────────────────────────────────────────────
+void *producer(void *arg) {
+    for (int item = 1; item <= num_items; item++) {
+
+        sem_wait(&empty);
+        pthread_mutex_lock(&mutex);
+
+        buffer[in] = item;
+        printf("[PRODUCER] Produced item %2d → buffer[%d]  "
+               "(filled slots: %d/%d)\n",
+               item, in, item - out, buffer_size);
+        in = (in + 1) % buffer_size;
+
+        pthread_mutex_unlock(&mutex);
+        sem_post(&full);
+
+        sleep(1);
+    }
+    return NULL;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  CONSUMER THREAD
+// ─────────────────────────────────────────────────────────────
+void *consumer(void *arg) {
+    for (int i = 0; i < num_items; i++) {
+
+        sem_wait(&full);
+        pthread_mutex_lock(&mutex);
+
+        int item = buffer[out];
+        printf("[CONSUMER] Consumed item %2d ← buffer[%d]\n", item, out);
+        out = (out + 1) % buffer_size;
+
+        pthread_mutex_unlock(&mutex);
+        sem_post(&empty);
+
+        sleep(2);
+    }
+    return NULL;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  MAIN
+// ─────────────────────────────────────────────────────────────
+int main() {
+    printf("=== Producer-Consumer Problem ===\n\n");
+
+    // ── User Input ────────────────────────────────────────────
+    printf("Enter buffer size  : ");
+    scanf("%d", &buffer_size);
+
+    printf("Enter total items  : ");
+    scanf("%d", &num_items);
+
+    // Validate
+    if (buffer_size <= 0 || num_items <= 0) {
+        printf("Error: Values must be positive integers.\n");
+        return 1;
+    }
+
+    // ── Allocate buffer dynamically ───────────────────────────
+    buffer = (int *)malloc(buffer_size * sizeof(int));
+    if (!buffer) {
+        printf("Error: Memory allocation failed.\n");
+        return 1;
+    }
+
+    // ── Initialize semaphores & mutex ─────────────────────────
+    sem_init(&empty, 0, buffer_size);
+    sem_init(&full,  0, 0);
+    pthread_mutex_init(&mutex, NULL);
+
+    printf("\nBuffer Size : %d\n", buffer_size);
+    printf("Total Items : %d\n", num_items);
+    printf("---------------------------------\n");
+
+    // ── Create threads ────────────────────────────────────────
+    pthread_t prod_thread, cons_thread;
+    pthread_create(&prod_thread, NULL, producer, NULL);
+    pthread_create(&cons_thread, NULL, consumer, NULL);
+
+    // ── Wait for both threads to finish ───────────────────────
+    pthread_join(prod_thread, NULL);
+    pthread_join(cons_thread, NULL);
+
+    printf("---------------------------------\n");
+    printf("All %d items produced and consumed.\n", num_items);
+
+    // ── Cleanup ───────────────────────────────────────────────
+    free(buffer);
+    sem_destroy(&empty);
+    sem_destroy(&full);
+    pthread_mutex_destroy(&mutex);
+
+    return 0;
+}
